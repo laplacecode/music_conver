@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Dev Lab - M4A/OGG 转 MP3</title>
+    <style>
+        :root {
+            color-scheme: light;
+        }
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(120deg, #eef2ff, #f8fafc);
+            min-height: 100vh;
+            padding: 32px 16px 48px;
+            color: #1e293b;
+        }
+        h1 {
+            margin: 0 0 6px;
+            font-size: 32px;
+            text-align: center;
+        }
+        p.subtitle {
+            text-align: center;
+            margin: 0 0 32px;
+            color: #475569;
+        }
+        .grid {
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            gap: 24px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        }
+        .card {
+            background: #fff;
+            border-radius: 18px;
+            padding: 26px;
+            box-shadow: 0 25px 70px rgba(15, 23, 42, 0.12);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        h2 {
+            margin: 0;
+            font-size: 24px;
+        }
+        label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: block;
+        }
+        input[type="file"] {
+            width: 100%;
+            border-radius: 12px;
+            border: 2px dashed #cbd5f5;
+            background: #f8fafc;
+            padding: 18px;
+            font-size: 15px;
+            color: #475569;
+        }
+        button {
+            border: none;
+            border-radius: 12px;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            background: #2563eb;
+            color: #fff;
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 15px 35px rgba(37, 99, 235, 0.35);
+        }
+        button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .hint {
+            background: #fef9c3;
+            color: #854d0e;
+            padding: 12px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .status {
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 14px;
+        }
+        .status.info {
+            background: #eef2ff;
+            color: #1e3a8a;
+        }
+        .status.success {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .download-link {
+            display: none;
+            text-align: center;
+            background: #0f766e;
+            color: #fff;
+            padding: 13px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .download-link.visible {
+            display: block;
+        }
+        footer {
+            margin-top: 32px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Music Dev Lab</h1>
+    <p class="subtitle">前端页面通过 <code>http://localhost:3001</code> 的 Node 服务调用同目录 ffmpeg.exe，实现 M4A/OGG 转 MP3。</p>
+
+    <div class="grid">
+        <section class="card">
+            <div>
+                <h2>M4A 转 MP3</h2>
+                <p class="hint">选择一个 <code>.m4a</code> 文件后点击按钮，本机服务会调用 ffmpeg.exe 转换。</p>
+            </div>
+            <div>
+                <label for="m4aInput">选择 M4A 文件</label>
+                <input type="file" id="m4aInput" accept=".m4a,audio/mp4">
+            </div>
+            <button id="m4aBtn" type="button">转换为 MP3</button>
+            <div id="m4aStatus" class="status info">请选择文件开始转换。</div>
+            <a id="m4aDownload" class="download-link" href="#" download>下载 MP3</a>
+        </section>
+
+        <section class="card">
+            <div>
+                <h2>OGG 转 MP3</h2>
+                <p class="hint">适用于 QQ 音乐缓存或其他 OGG 文件，直接上传单个文件即可转码。</p>
+            </div>
+            <div>
+                <label for="oggInput">选择 OGG 文件</label>
+                <input type="file" id="oggInput" accept=".ogg,audio/ogg">
+            </div>
+            <button id="oggBtn" type="button">转换为 MP3</button>
+            <div id="oggStatus" class="status info">请选择文件开始转换。</div>
+            <a id="oggDownload" class="download-link" href="#" download>下载 MP3</a>
+        </section>
+    </div>
+
+    <footer>
+        请先在 <code>music_express</code> 目录运行 <code>node server.js</code>（默认端口 3001），再使用本页面。
+    </footer>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        const ENDPOINTS = {
+            m4a: `${API_BASE}/convert/m4a-to-mp3`,
+            ogg: `${API_BASE}/convert/ogg-to-mp3`
+        };
+
+        const elements = {
+            m4a: {
+                input: document.getElementById('m4aInput'),
+                button: document.getElementById('m4aBtn'),
+                status: document.getElementById('m4aStatus'),
+                download: document.getElementById('m4aDownload')
+            },
+            ogg: {
+                input: document.getElementById('oggInput'),
+                button: document.getElementById('oggBtn'),
+                status: document.getElementById('oggStatus'),
+                download: document.getElementById('oggDownload')
+            }
+        };
+
+        const objectUrls = {
+            m4a: null,
+            ogg: null
+        };
+
+        function setStatus(element, message, type = 'info') {
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        function resetDownload(key) {
+            if (objectUrls[key]) {
+                URL.revokeObjectURL(objectUrls[key]);
+                objectUrls[key] = null;
+            }
+            const anchor = elements[key].download;
+            anchor.classList.remove('visible');
+            anchor.removeAttribute('href');
+            anchor.removeAttribute('download');
+        }
+
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            const chunkSize = 0x8000;
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+                const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.byteLength));
+                binary += String.fromCharCode.apply(null, chunk);
+            }
+            return btoa(binary);
+        }
+
+        function base64ToBlob(base64, mimeType) {
+            const binary = atob(base64);
+            const len = binary.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i += 1) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return new Blob([bytes], { type: mimeType });
+        }
+
+        function getSafeFileName(name, fallback) {
+            const safe = (name || fallback || 'audio').replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_\-]/g, '_');
+            return safe || fallback || 'audio';
+        }
+
+        async function convertFile(key, acceptedExt) {
+            const file = elements[key].input.files && elements[key].input.files[0];
+            if (!file) {
+                setStatus(elements[key].status, '请先选择文件。', 'error');
+                return;
+            }
+            if (!file.name.toLowerCase().endsWith(acceptedExt)) {
+                setStatus(elements[key].status, `请选择扩展名为 ${acceptedExt} 的文件。`, 'error');
+                return;
+            }
+
+            resetDownload(key);
+
+            try {
+                elements[key].button.disabled = true;
+                setStatus(elements[key].status, '正在上传并调用 ffmpeg.exe，请稍候。', 'info');
+
+                const base64Payload = arrayBufferToBase64(await file.arrayBuffer());
+                const response = await fetch(ENDPOINTS[key], {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fileName: file.name, fileData: base64Payload })
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok || !result.success) {
+                    throw new Error(result.message || '转换失败，请稍后重试。');
+                }
+
+                const blob = base64ToBlob(result.fileData, 'audio/mpeg');
+                objectUrls[key] = URL.createObjectURL(blob);
+                const anchor = elements[key].download;
+                anchor.href = objectUrls[key];
+                anchor.download = result.fileName || `${getSafeFileName(file.name, key)}.mp3`;
+                anchor.classList.add('visible');
+                setStatus(elements[key].status, '转换成功！点击下方按钮下载。', 'success');
+            } catch (error) {
+                console.error(error);
+                setStatus(elements[key].status, error.message || '处理失败，请查看控制台日志。', 'error');
+            } finally {
+                elements[key].button.disabled = false;
+            }
+        }
+
+        elements.m4a.button.addEventListener('click', () => convertFile('m4a', '.m4a'));
+        elements.ogg.button.addEventListener('click', () => convertFile('ogg', '.ogg'));
+
+        elements.m4a.input.addEventListener('change', () => {
+            resetDownload('m4a');
+            const ready = elements.m4a.input.files && elements.m4a.input.files.length > 0;
+            setStatus(elements.m4a.status, ready ? '文件已准备好，点击“转换为 MP3”。' : '请选择文件开始转换。', 'info');
+        });
+        elements.ogg.input.addEventListener('change', () => {
+            resetDownload('ogg');
+            const ready = elements.ogg.input.files && elements.ogg.input.files.length > 0;
+            setStatus(elements.ogg.status, ready ? '文件已准备好，点击“转换为 MP3”。' : '请选择文件开始转换。', 'info');
+        });
+    </script>
+</body>
+</html>

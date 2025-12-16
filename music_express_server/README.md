@@ -18,11 +18,12 @@
 ## 快速开始
 
 ```bash
-//服务器端首次启动
+// 服务器端首次启动
+cd music_express_server
 npm install            # 首次安装依赖
 npm start              # 或 node server.js
 
-//前端直接打开music_conver_index.html
+// 前端直接打开music_conver_index.html
 ```
 
 默认监听 `http://localhost:3001`。若需修改端口，可编辑 `server.js` 顶部的 `PORT` 常量。
