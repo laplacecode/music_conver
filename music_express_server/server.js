@@ -2,11 +2,12 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+const ffmpegPath = ffmpegInstaller?.path || ffmpegInstaller;
 
 const app = express();
 const PORT = 3001;
 
-const ffmpegPath = path.join(__dirname, 'ffmpeg.exe');
 const uploadDir = path.join(__dirname, 'tmp_uploads');
 const outputDir = path.join(__dirname, 'tmp_outputs');
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB per file
@@ -26,8 +27,8 @@ app.use((req, res, next) => {
 });
 
 function ensureFfmpeg() {
-    if (!fs.existsSync(ffmpegPath)) {
-        const error = new Error('未找到 ffmpeg.exe，请确认它与 server.js 位于同一目录。');
+    if (!ffmpegPath || !fs.existsSync(ffmpegPath)) {
+        const error = new Error('未能加载 ffmpeg，可运行 npm install 重新安装依赖。');
         error.code = 'FFMPEG_NOT_FOUND';
         throw error;
     }
